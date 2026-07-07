@@ -1,0 +1,180 @@
+basePath: /
+definitions:
+  model.Product:
+    properties:
+      id:
+        example: 1
+        type: integer
+      name:
+        example: Kopi Susu Ex
+        type: string
+      price:
+        example: 15000
+        type: number
+      stock:
+        example: 100
+        type: integer
+    type: object
+  model.ProductCreateRequest:
+    properties:
+      name:
+        example: Kopi Susu
+        type: string
+      price:
+        example: 15000
+        type: number
+      stock:
+        example: 100
+        type: integer
+    type: object
+  model.ProductUpdateRequest:
+    properties:
+      name:
+        example: Kopi Susu Gula Aren
+        type: string
+      price:
+        example: 18000
+        type: number
+      stock:
+        example: 80
+        type: integer
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: REST API untuk CRUD produk menggunakan net/http dan ServeMux
+  title: Product API
+  version: "1.0"
+paths:
+  /products:
+    get:
+      description: Menampilkan semua produk yang ada
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Product'
+            type: array
+      summary: Ambil daftar produk
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: Menambahkan produk baru ke sistem
+      parameters:
+      - description: Data produk
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/model.ProductCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Product'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Buat produk baru
+      tags:
+      - products
+  /products/{id}:
+    delete:
+      description: Menghapus produk berdasarkan ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Hapus produk
+      tags:
+      - products
+    get:
+      description: Menampilkan detail produk berdasarkan ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Product'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ambil detail produk
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Mengubah data produk berdasarkan ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Data produk baru
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/model.ProductUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Product'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update produk
+      tags:
+      - products
+swagger: "2.0"
