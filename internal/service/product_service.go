@@ -1,24 +1,47 @@
 package service
 
 import (
-	"errors"
-
 	"product-api/internal/model"
 	"product-api/internal/repository"
+	"github.com/redis/go-redis/v9"
+	"encoding/json"
+	"errors"
+	"context"
+	"time"
+	"fmt"
 )
 
 type ProductService struct {
 	repo repository.ProductRepository
+	redis *redis.Client
 }
 
-func NewProductService(repo repository.ProductRepository) *ProductService {
-	return &ProductService{repo: repo}
+func NewProductService(repo repository.ProductRepository, redis *redis.Client) *ProductService {
+	return &ProductService{repo: repo, redis: redis}
 }
 
 func (s *ProductService) GetAllProducts() ([]model.Product, error) {
+	ctx := context.Background()
+	chacheKey := "products_all"
+
+	chaced, err := s.redis.Get(ctx, chacheKey).Result()
+	if err == nil {
+		var products []model.Product
+		if err := json.Unmarshal([]byte(chaced), &products); err == nil {
+			fmt.Println("Data dari cache Redis")
+			return products, nil
+		}
+	}
+	
+	fmt.Println("Data dari database MySQL")
 	products, err := s.repo.GetAll()
 	if err != nil {
 		return nil, err
+	}
+
+	data, err := json.Marshal(products)
+	if err != nil {
+		s.redis.Set(ctx, chacheKey, data, 10*time.Second)
 	}
 	return products, nil
 }
@@ -45,6 +68,11 @@ func (s *ProductService) CreateProduct(req model.ProductCreateRequest) (model.Pr
 		return model.Product{}, err
 	}
 
+	ctx := context.Background()
+	if err := s.redis.Del(ctx, "products_all").Err(); err != nil {
+		fmt.Println("Gagal menghapus cache Redis:", err)
+	}
+
 	return result, nil
 }
 
@@ -69,9 +97,27 @@ func (s *ProductService) UpdateProduct(id int, req model.ProductUpdateRequest) (
 		Stock: req.Stock,
 	}
 
-	return s.repo.Update(id, p)
+	result, err := s.repo.Update(id, p)
+	if err != nil {
+		return model.Product{}, err
+	}
+
+	ctx := context.Background()
+	s.redis.Del(ctx, "products_all")
+	s.redis.Del(ctx, fmt.Sprintf("product_%d", id))
+
+	return result, nil
 }
 
 func (s *ProductService) DeleteProduct(id int) error {
-	return s.repo.Delete(id)
+	err := s.repo.Delete(id)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	s.redis.Del(ctx, "products_all")
+	s.redis.Del(ctx, fmt.Sprintf("product_%d", id))
+
+	return nil
 }

@@ -24,14 +24,22 @@ import (
 func main() {
 	dsn := "root:rootpassword@tcp(localhost:3306)/products_db"
 	
+	// MySQL
 	db, err := database.ConnectDB(dsn)
 	if err != nil {
-		log.Fatal(fmt.Errorf("gagal membuat koneksi database: %w", err))
+		log.Fatal(fmt.Errorf("gagal membuat koneksi MySQL: %w", err))
 	}
 	defer db.Close()
 
+	// Redis
+	redisClient, err := database.ConnectRedis("localhost:6379")
+	if err != nil {
+		log.Fatal(fmt.Errorf("gagal membuat koneksi Redis: %w", err))
+	}
+	defer redisClient.Close()
+
 	repo := repository.NewProductRepositoryMySQL(db)
-	svc := service.NewProductService(repo)
+	svc := service.NewProductService(repo, redisClient)
 	h := handler.NewProductHandler(svc)
 
 	mux := router.NewRouter(h)
