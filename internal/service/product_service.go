@@ -3,7 +3,8 @@ package service
 import (
 	"product-api/internal/model"
 	"product-api/internal/repository"
-	"github.com/redis/go-redis/v9"
+	// "github.com/redis/go-redis/v9"
+	"product-api/internal/cache"
 	"encoding/json"
 	"errors"
 	"context"
@@ -13,10 +14,10 @@ import (
 
 type ProductService struct {
 	repo repository.ProductRepository
-	redis *redis.Client
+	redis cache.RedisClient
 }
 
-func NewProductService(repo repository.ProductRepository, redis *redis.Client) *ProductService {
+func NewProductService(repo repository.ProductRepository, redis cache.RedisClient) *ProductService {
 	return &ProductService{repo: repo, redis: redis}
 }
 
