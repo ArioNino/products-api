@@ -61,7 +61,11 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Success      200  {array}  model.Product
 // @Router       /products [get]
 func (h *ProductHandler) GetList(w http.ResponseWriter, r *http.Request) {
-	products := h.service.GetAllProducts()
+	products, err := h.service.GetAllProducts()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "gagal mengambil daftar produk")
+		return
+	}
 	writeJSON(w, http.StatusOK, products)
 }
 

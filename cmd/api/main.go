@@ -16,12 +16,21 @@ import (
 	"product-api/internal/repository"
 	"product-api/internal/router"
 	"product-api/internal/service"
+	"product-api/internal/database"
 
 	_ "product-api/docs"
 )
 
 func main() {
-	repo := repository.NewProductRepository()
+	dsn := "root:rootpassword@tcp(localhost:3306)/products_db"
+	
+	db, err := database.ConnectDB(dsn)
+	if err != nil {
+		log.Fatal(fmt.Errorf("gagal membuat koneksi database: %w", err))
+	}
+	defer db.Close()
+
+	repo := repository.NewProductRepositoryMySQL(db)
 	svc := service.NewProductService(repo)
 	h := handler.NewProductHandler(svc)
 

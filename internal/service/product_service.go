@@ -8,11 +8,19 @@ import (
 )
 
 type ProductService struct {
-	repo *repository.ProductRepository
+	repo repository.ProductRepository
 }
 
-func NewProductService(repo *repository.ProductRepository) *ProductService {
+func NewProductService(repo repository.ProductRepository) *ProductService {
 	return &ProductService{repo: repo}
+}
+
+func (s *ProductService) GetAllProducts() ([]model.Product, error) {
+	products, err := s.repo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	return products, nil
 }
 
 func (s *ProductService) CreateProduct(req model.ProductCreateRequest) (model.Product, error) {
@@ -32,11 +40,12 @@ func (s *ProductService) CreateProduct(req model.ProductCreateRequest) (model.Pr
 		Stock: req.Stock,
 	}
 
-	return s.repo.Create(p), nil
-}
+	result, err := s.repo.Create(p) 
+	if err != nil {
+		return model.Product{}, err
+	}
 
-func (s *ProductService) GetAllProducts() []model.Product {
-	return s.repo.GetAll()
+	return result, nil
 }
 
 func (s *ProductService) GetProductByID(id int) (model.Product, error) {
