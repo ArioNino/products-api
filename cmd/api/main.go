@@ -10,28 +10,27 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
-
+	"os"
+	"product-api/internal/database"
 	"product-api/internal/handler"
 	"product-api/internal/repository"
 	"product-api/internal/router"
 	"product-api/internal/service"
-	"product-api/internal/database"
 
 	_ "product-api/docs"
 )
 
 func main() {
 	dsn := "root:rootpassword@tcp(localhost:3306)/products_db"
-	
-	// MySQL
+
 	db, err := database.ConnectDB(dsn)
 	if err != nil {
 		log.Fatal(fmt.Errorf("gagal membuat koneksi MySQL: %w", err))
 	}
 	defer db.Close()
 
-	// Redis
 	redisClient, err := database.ConnectRedis("localhost:6379")
 	if err != nil {
 		log.Fatal(fmt.Errorf("gagal membuat koneksi Redis: %w", err))
@@ -44,7 +43,14 @@ func main() {
 
 	mux := router.NewRouter(h)
 
-	fmt.Println("Server jalan di port 8081")
-	fmt.Println("Swagger docs di http://localhost:8081/swagger/index.html")
-	log.Fatal(http.ListenAndServe(":8081", mux))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
+	slog.SetDefault(logger)
+
+	if err := http.ListenAndServe(":8081", mux); err != nil {
+		slog.Error("server gagal berjalan", "error", err)
+		os.Exit(1)
+	}
 }
