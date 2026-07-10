@@ -41,7 +41,7 @@ func (s *ProductService) GetAllProducts() ([]model.Product, error) {
 	}
 
 	data, err := json.Marshal(products)
-	if err != nil {
+	if err == nil {
 		s.redis.Set(ctx, chacheKey, data, 10*time.Second)
 	}
 	return products, nil

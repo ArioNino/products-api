@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	github.com/go-sql-driver/mysql v1.10.0
+	github.com/golang/mock v1.6.0
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
