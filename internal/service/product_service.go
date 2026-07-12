@@ -23,9 +23,9 @@ func NewProductService(repo repository.ProductRepository, redis cache.RedisClien
 
 func (s *ProductService) GetAllProducts() ([]model.Product, error) {
 	ctx := context.Background()
-	chacheKey := "products_all"
+	cacheKey := "products_all"
 
-	chaced, err := s.redis.Get(ctx, chacheKey).Result()
+	chaced, err := s.redis.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var products []model.Product
 		if err := json.Unmarshal([]byte(chaced), &products); err == nil {
@@ -33,8 +33,7 @@ func (s *ProductService) GetAllProducts() ([]model.Product, error) {
 			return products, nil
 		}
 	}
-	
-	fmt.Println("Data dari database MySQL")
+
 	products, err := s.repo.GetAll()
 	if err != nil {
 		return nil, err
@@ -42,7 +41,7 @@ func (s *ProductService) GetAllProducts() ([]model.Product, error) {
 
 	data, err := json.Marshal(products)
 	if err == nil {
-		s.redis.Set(ctx, chacheKey, data, 10*time.Second)
+		s.redis.Set(ctx, cacheKey, data, 10*time.Second)
 	}
 	return products, nil
 }
@@ -78,7 +77,29 @@ func (s *ProductService) CreateProduct(req model.ProductCreateRequest) (model.Pr
 }
 
 func (s *ProductService) GetProductByID(id int) (model.Product, error) {
-	return s.repo.GetByID(id)
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("product_%d", id)
+
+	cached, err := s.redis.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var product model.Product
+		if err := json.Unmarshal([]byte(cached), &product); err == nil {
+			fmt.Println("Data dari cache redis")
+			return product, nil
+		}
+	}
+
+	product, err := s.repo.GetByID(id)
+	if err != nil {
+		return model.Product{}, err
+	}
+
+	data, err := json.Marshal(product)
+	if err == nil {
+		s.redis.Set(ctx, cacheKey, data, 10*time.Second)
+	}
+
+	return product, nil
 }
 
 func (s *ProductService) UpdateProduct(id int, req model.ProductUpdateRequest) (model.Product, error) {
