@@ -11,15 +11,16 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"context"
 	"net/http"
 	"os"
+	_ "product-api/docs"
 	"product-api/internal/database"
 	"product-api/internal/handler"
+	"product-api/internal/observability"
 	"product-api/internal/repository"
 	"product-api/internal/router"
 	"product-api/internal/service"
-
-	_ "product-api/docs"
 )
 
 func main() {
@@ -37,17 +38,19 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	logger, shutdownLogger, err := observability.InitLogger("product-api")
+	if err != nil {
+		log.Fatal(fmt.Errorf("gagal setup logger: %w", err))
+	}
+	defer shutdownLogger(context.Background())
+
+	slog.SetDefault(logger)
+
 	repo := repository.NewProductRepositoryMySQL(db)
-	svc := service.NewProductService(repo, redisClient)
+	svc := service.NewProductService(repo, redisClient, logger)
 	h := handler.NewProductHandler(svc)
 
 	mux := router.NewRouter(h)
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-
-	slog.SetDefault(logger)
 
 	if err := http.ListenAndServe(":8081", mux); err != nil {
 		slog.Error("server gagal berjalan", "error", err)

@@ -74,6 +74,7 @@ func (r *productRepositoryMySQL) Update(id int, updated model.Product) (model.Pr
 		return model.Product{}, err
 	}
 
+	updated.ID = id
 	return updated, nil
 }
 

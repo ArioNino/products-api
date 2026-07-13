@@ -3,15 +3,19 @@ package service_test
 import (
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	cacheMock "product-api/internal/cache/mocks"
-	repoMock "product-api/internal/repository/mocks"
 	"product-api/internal/model"
+	repoMock "product-api/internal/repository/mocks"
 	"product-api/internal/service"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/redis/go-redis/v9"
 )
+
+var testLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func TestProductService_GetAllProducts(t *testing.T) {
 	tests := []struct {
@@ -21,13 +25,13 @@ func TestProductService_GetAllProducts(t *testing.T) {
 		wantLen    int
 	}{
 		{
-			name: "CacheHit",
+			name: "",
 			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {
 				cachedProducts := []model.Product{
 					{
-						ID: 1, 
-						Name: "Kopi Arabika",
-						Price: 10000, 
+						ID:    1,
+						Name:  "Kopi Arabika",
+						Price: 10000,
 						Stock: 10},
 				}
 				cachedJSON, _ := json.Marshal(cachedProducts)
@@ -40,7 +44,7 @@ func TestProductService_GetAllProducts(t *testing.T) {
 			wantLen: 1,
 		},
 		{
-			name: "Cache Miss Hit GetAll Products",
+			name: "return from mysql when cache miss",
 			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {
 				mockRedis.EXPECT().
 					Get(gomock.Any(), "products_all").
@@ -50,9 +54,9 @@ func TestProductService_GetAllProducts(t *testing.T) {
 					GetAll().
 					Return([]model.Product{
 						{
-							ID: 1, 
-							Name: "Kopi Arabika", 
-							Price: 10000, 
+							ID:    1,
+							Name:  "Kopi Arabika",
+							Price: 10000,
 							Stock: 10},
 					}, nil)
 
@@ -63,6 +67,19 @@ func TestProductService_GetAllProducts(t *testing.T) {
 			},
 			wantErr: false,
 			wantLen: 1,
+		},
+		{
+			name: "return error when repository fails",
+			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {
+				mockRedis.EXPECT().
+					Get(gomock.Any(), "products_all").
+					Return(redis.NewStringResult("", redis.Nil))
+
+				mockRepo.EXPECT().
+					GetAll().
+					Return(nil, errors.New("koneksi database gagal"))
+			},
+			wantErr: true,
 		},
 	}
 
@@ -76,7 +93,7 @@ func TestProductService_GetAllProducts(t *testing.T) {
 
 			tt.setupMocks(mockRepo, mockRedis)
 
-			s := service.NewProductService(mockRepo, mockRedis)
+			s := service.NewProductService(mockRepo, mockRedis, testLogger)
 
 			got, err := s.GetAllProducts()
 
@@ -114,14 +131,14 @@ func TestProductService_CreateProduct(t *testing.T) {
 	tests := []struct {
 		name       string
 		req        model.ProductCreateRequest
-		setupMocks func(mockRepo *repoMock.MockProductRepository, 
+		setupMocks func(mockRepo *repoMock.MockProductRepository,
 			mockRedis *cacheMock.MockRedisClient)
-		wantErr    bool
+		wantErr bool
 	}{
 		{
 			name: "create product success when input valid",
 			req:  validReq,
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, 
+			setupMocks: func(mockRepo *repoMock.MockProductRepository,
 				mockRedis *cacheMock.MockRedisClient) {
 				mockRepo.EXPECT().
 					Create(gomock.Any()).
@@ -134,39 +151,60 @@ func TestProductService_CreateProduct(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:       "return error when the name is empty",
-			req:        model.ProductCreateRequest{
-				Name: "", 
-				Price: 10000, 
-				Stock: 10},
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, 
-				mockRedis *cacheMock.MockRedisClient) {},
-			wantErr:    true,
+			name: "create product succes when cache fails",
+			req: model.ProductCreateRequest{
+				Name:  "Kopi Arabika",
+				Price: 10000,
+				Stock: 10,
+			},
+			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {
+				mockRepo.EXPECT().
+					Create(gomock.Any()).
+					Return(model.Product{ID: 1, Name: "Kopi Arabika", Price: 10000, Stock: 10}, nil)
+
+				mockRedis.EXPECT().
+					Del(gomock.Any(), "products_all").
+					Return(redis.NewIntResult(0, errors.New("koneksi redis gagal")))
+			},
+			wantErr: false,
 		},
 		{
-			name:       "return error when the price is invalid",
-			req:        model.ProductCreateRequest{
-				Name: "Kopi", 
-				Price: 0, 
+			name: "return error when the name is empty",
+			req: model.ProductCreateRequest{
+				Name:  "",
+				Price: 10000,
 				Stock: 10},
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, 
-				mockRedis *cacheMock.MockRedisClient) {},
-			wantErr:    true,
+			setupMocks: func(mockRepo *repoMock.MockProductRepository,
+				mockRedis *cacheMock.MockRedisClient) {
+			},
+			wantErr: true,
 		},
 		{
-			name:       "return error when the stock is invalid",
-			req:        model.ProductCreateRequest{
-				Name: "Kopi", 
-				Price: 10000, 
+			name: "return error when the price is invalid",
+			req: model.ProductCreateRequest{
+				Name:  "Kopi",
+				Price: 0,
+				Stock: 10},
+			setupMocks: func(mockRepo *repoMock.MockProductRepository,
+				mockRedis *cacheMock.MockRedisClient) {
+			},
+			wantErr: true,
+		},
+		{
+			name: "return error when the stock is invalid",
+			req: model.ProductCreateRequest{
+				Name:  "Kopi",
+				Price: 10000,
 				Stock: 0},
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, 
-				mockRedis *cacheMock.MockRedisClient) {},
-			wantErr:    true,
+			setupMocks: func(mockRepo *repoMock.MockProductRepository,
+				mockRedis *cacheMock.MockRedisClient) {
+			},
+			wantErr: true,
 		},
 		{
-			name: "",
+			name: "return error when repository fails",
 			req:  validReq,
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, 
+			setupMocks: func(mockRepo *repoMock.MockProductRepository,
 				mockRedis *cacheMock.MockRedisClient) {
 				mockRepo.EXPECT().
 					Create(gomock.Any()).
@@ -186,7 +224,7 @@ func TestProductService_CreateProduct(t *testing.T) {
 
 			tt.setupMocks(mockRepo, mockRedis)
 
-			s := service.NewProductService(mockRepo, mockRedis)
+			s := service.NewProductService(mockRepo, mockRedis, testLogger)
 
 			got, err := s.CreateProduct(tt.req)
 
@@ -206,8 +244,6 @@ func TestProductService_CreateProduct(t *testing.T) {
 		})
 	}
 }
-
-
 
 func TestProductService_UpdateProduct(t *testing.T) {
 	validReq := model.ProductUpdateRequest{
@@ -251,36 +287,36 @@ func TestProductService_UpdateProduct(t *testing.T) {
 		},
 		{
 			name: "return error when name empty",
-			id: 1,
+			id:   1,
 			req: model.ProductUpdateRequest{
-				Name: "",
+				Name:  "",
 				Price: 12000,
 				Stock: 15,
 			},
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient)  {},
-			wantErr: true,
+			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {},
+			wantErr:    true,
 		},
 		{
 			name: "return error when the price is zero",
-			id: 1,
+			id:   1,
 			req: model.ProductUpdateRequest{
-				Name: "Kopi Arabica",
+				Name:  "Kopi Arabica",
 				Price: 0,
 				Stock: 15,
 			},
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient)  {},
-			wantErr: true,
+			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {},
+			wantErr:    true,
 		},
 		{
 			name: "return error when the stock is zero",
-			id: 1,
+			id:   1,
 			req: model.ProductUpdateRequest{
-				Name: "Kopi Arabica",
+				Name:  "Kopi Arabica",
 				Price: 12000,
 				Stock: 0,
 			},
-			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient)  {},
-			wantErr: true,
+			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {},
+			wantErr:    true,
 		},
 		{
 			name: "return error when product not found",
@@ -295,8 +331,8 @@ func TestProductService_UpdateProduct(t *testing.T) {
 		},
 		{
 			name: "update product success",
-			id: 1,
-			req: validReq,
+			id:   1,
+			req:  validReq,
 			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {
 				mockRepo.EXPECT().
 					Update(1, gomock.Any()).
@@ -323,7 +359,7 @@ func TestProductService_UpdateProduct(t *testing.T) {
 
 			tt.setupMocks(mockRepo, mockRedis)
 
-			s := service.NewProductService(mockRepo, mockRedis)
+			s := service.NewProductService(mockRepo, mockRedis, testLogger)
 
 			got, err := s.UpdateProduct(tt.id, tt.req)
 
@@ -347,14 +383,14 @@ func TestProductService_UpdateProduct(t *testing.T) {
 
 func TestProductService_DeleteProduct(t *testing.T) {
 	tests := []struct {
-		name string
-		id      int
+		name       string
+		id         int
 		setupMocks func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient)
-		wantErr bool
+		wantErr    bool
 	}{
 		{
 			name: "delete product success when product exist",
-			id: 1,
+			id:   1,
 			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {
 				mockRepo.EXPECT().
 					Delete(1).
@@ -382,6 +418,7 @@ func TestProductService_DeleteProduct(t *testing.T) {
 		},
 		{
 			name: "delete product success when cache invalidation fails",
+			id:   1,
 			setupMocks: func(mockRepo *repoMock.MockProductRepository, mockRedis *cacheMock.MockRedisClient) {
 				mockRepo.EXPECT().
 					Delete(1).
@@ -397,7 +434,6 @@ func TestProductService_DeleteProduct(t *testing.T) {
 			},
 			wantErr: false,
 		},
-
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -409,7 +445,7 @@ func TestProductService_DeleteProduct(t *testing.T) {
 
 			tt.setupMocks(mockRepo, mockRedis)
 
-			s := service.NewProductService(mockRepo, mockRedis)
+			s := service.NewProductService(mockRepo, mockRedis, testLogger)
 
 			err := s.DeleteProduct(tt.id)
 
@@ -491,7 +527,7 @@ func TestProductService_GetProductByID(t *testing.T) {
 
 			tt.setupMocks(mockRepo, mockRedis)
 
-			s := service.NewProductService(mockRepo, mockRedis)
+			s := service.NewProductService(mockRepo, mockRedis, testLogger)
 
 			got, err := s.GetProductByID(tt.id)
 
