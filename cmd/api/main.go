@@ -12,10 +12,11 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
-	"os"
 	_ "product-api/docs"
 	"product-api/internal/database"
+	"product-api/internal/grpcserver"
 	"product-api/internal/handler"
 	"product-api/internal/observability"
 	"product-api/internal/repository"
@@ -47,19 +48,39 @@ func main() {
 		log.Fatal(fmt.Errorf("gagal setup logger: %w", err))
 	}
 	defer shutdownLogger(context.Background())
-
+	
 	slog.SetDefault(logger)
-
+	
 	repo := repository.NewProductRepositoryMySQL(db)
 	svc := service.NewProductService(repo, redisClient, logger)
+	
 	h := handler.NewProductHandler(svc)
-
 	mux := router.NewRouter(h)
+	
+	go func() {
+		slog.Info("REST server jalan di port 8081")
+		if err := http.ListenAndServe(":8081", mux); err != nil {
+			slog.Error("REST server gagal berjalan", "error", err)
+		}
+	}()
+	
+	grpcSrv := grpcserver.NewProductGRPCServer(svc)
+	grpcServer := grpc.NewServer()
+	pb.RegisterProductGRPCServiceServer(grpcServer, grpcSrv)
 
-	if err := http.ListenAndServe(":8081", mux); err != nil {
-		slog.Error("server gagal berjalan", "error", err)
-		os.Exit(1)
-	}
+	go func(){
+		listener, err := net.Listen("tcp", ":9090")
+		if err != nil {
+			log.Fatal(fmt.Errorf("gagal listen gRPC : %w", err))
+		}
+		slog.Info("gRPC Server jalan di port 9090")
+		if err := grpcServer.Serve(listener); err != nil {
+			slog.Error("gRPC server gagal berjalan", "error", err)
+		}
+	}()
+
+	go gateway("localhost:9090", ":8082")
+	select{}
 }
 
 func gateway (grpcAddr string, gatewayAddr string){
