@@ -8,10 +8,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
-	"context"
 	"net/http"
 	"os"
 	_ "product-api/docs"
@@ -21,6 +21,10 @@ import (
 	"product-api/internal/repository"
 	"product-api/internal/router"
 	"product-api/internal/service"
+	pb "product-api/proto"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -56,4 +60,18 @@ func main() {
 		slog.Error("server gagal berjalan", "error", err)
 		os.Exit(1)
 	}
+}
+
+func gateway (grpcAddr string, gatewayAddr string){
+	ctx := context.Background()
+	gwMux := runtime.NewServeMux()
+
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+
+	err := pb.RegisterProductGRPCServiceHandlerFromEndpoint(ctx, gwMux, grpcAddr, opts)
+	if err != nil {
+		log.Fatal(fmt.Errorf("gagal daftar gateway: %w", err))
+	}
+	slog.Info("gateway REST (dari grpc) jalan di port 8082")
+	log.Fatal(http.ListenAndServe(gatewayAddr, gwMux))
 }

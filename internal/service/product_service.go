@@ -31,7 +31,7 @@ func (s *ProductService) GetAllProducts() ([]model.Product, error) {
 	if err == nil {
 		var products []model.Product
 		if err := json.Unmarshal([]byte(chaced), &products); err == nil {
-			s.logger.Info("Data diambil dari cache", "source", "redis", "key", cacheKey)
+			s.logger.Warn("Data diambil dari cache", "source", "redis", "key", cacheKey)
 			return products, nil
 		}
 	}
