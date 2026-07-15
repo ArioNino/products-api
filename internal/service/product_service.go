@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"product-api/internal/model"
 	"product-api/internal/repository"
-	// "github.com/redis/go-redis/v9"
+	"product-api/internal/event"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,13 +14,14 @@ import (
 )
 
 type ProductService struct {
-	repo repository.ProductRepository
-	redis cache.RedisClient
-	logger *slog.Logger
+	repo      repository.ProductRepository
+	redis     cache.RedisClient
+	logger    *slog.Logger
+	publisher event.ProductPublisher
 }
 
-func NewProductService(repo repository.ProductRepository, redis cache.RedisClient, logger *slog.Logger) *ProductService {
-	return &ProductService{repo: repo, redis: redis, logger: logger}
+func NewProductService(repo repository.ProductRepository, redis cache.RedisClient, logger *slog.Logger, publisher event.ProductPublisher) *ProductService {
+	return &ProductService{repo: repo, redis: redis, logger: logger, publisher: publisher}
 }
 
 func (s *ProductService) GetAllProducts() ([]model.Product, error) {
@@ -69,7 +70,7 @@ func (s *ProductService) CreateProduct(req model.ProductCreateRequest) (model.Pr
 		Stock: req.Stock,
 	}
 
-	result, err := s.repo.Create(p) 
+	result, err := s.repo.Create(p)
 	if err != nil {
 		s.logger.Error("gagal membuat produk", "error", err)
 		return model.Product{}, err
@@ -78,6 +79,10 @@ func (s *ProductService) CreateProduct(req model.ProductCreateRequest) (model.Pr
 	ctx := context.Background()
 	if err := s.redis.Del(ctx, "products_all").Err(); err != nil {
 		s.logger.Warn("gagal menghapus cache redis", "error", err)
+	}
+
+	if err := s.publisher.PublishProductCreated(ctx, result); err != nil {
+		s.logger.Warn("gagal publish event produk baru", "product_id", result.ID, "error", err)
 	}
 
 	s.logger.Info("produk berhasil dibuat", "product_id", result.ID, "name", result.Name)

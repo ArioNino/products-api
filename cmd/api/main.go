@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	_ "product-api/docs"
+	"product-api/internal/event"
 	"product-api/internal/database"
 	"product-api/internal/grpcserver"
 	"product-api/internal/handler"
@@ -31,18 +32,47 @@ import (
 func main() {
 	dsn := "root:rootpassword@tcp(localhost:3306)/products_db"
 
+	// Mysql
 	db, err := database.ConnectDB(dsn)
 	if err != nil {
 		log.Fatal(fmt.Errorf("gagal membuat koneksi MySQL: %w", err))
 	}
 	defer db.Close()
 
+	// Redis
 	redisClient, err := database.ConnectRedis("localhost:6379")
 	if err != nil {
 		log.Fatal(fmt.Errorf("gagal membuat koneksi Redis: %w", err))
 	}
 	defer redisClient.Close()
+	
+	// RabbitMQ
+	rabbitConn, err := database.ConnectRabbitMQ("amqp://app_user:app_password@localhost:5672/")
+	if err != nil {
+		log.Fatal(fmt.Errorf("gagal membuat koneksi RabbitMQ: %w", err))
+	}
+	defer rabbitConn.Close()
 
+	rabbitCh, err := rabbitConn.Channel()
+	if err != nil {
+		log.Fatal(fmt.Errorf("gagal membuka channel RabbitMQ: %w", err))
+	}
+	defer rabbitCh.Close()
+	
+	if err := event.SetupProductBroker(rabbitCh); err != nil {
+		log.Fatal(fmt.Errorf("gagal setup exchange/queue RabbitMQ: %w", err))
+	}
+
+	publisher := event.NewProductPublisher(rabbitCh)
+	consumerCh, err := rabbitConn.Channel()
+	if err != nil {
+		log.Fatal(fmt.Errorf("gagal membuka consumer RabbitMQ: %w", err))
+	}
+	defer consumerCh.Close()
+
+	go event.StartProductConsumer(consumerCh)
+
+	// Logger
 	logger, shutdownLogger, err := observability.InitLogger("product-api")
 	if err != nil {
 		log.Fatal(fmt.Errorf("gagal setup logger: %w", err))
@@ -50,9 +80,9 @@ func main() {
 	defer shutdownLogger(context.Background())
 	
 	slog.SetDefault(logger)
-	
+
 	repo := repository.NewProductRepositoryMySQL(db)
-	svc := service.NewProductService(repo, redisClient, logger)
+	svc := service.NewProductService(repo, redisClient, logger, publisher)
 	
 	h := handler.NewProductHandler(svc)
 	mux := router.NewRouter(h)
