@@ -15,8 +15,8 @@ import (
 	"net"
 	"net/http"
 	_ "product-api/docs"
-	"product-api/internal/event"
 	"product-api/internal/database"
+	"product-api/internal/event"
 	"product-api/internal/grpcserver"
 	"product-api/internal/handler"
 	"product-api/internal/observability"
@@ -24,12 +24,15 @@ import (
 	"product-api/internal/router"
 	"product-api/internal/service"
 	pb "product-api/proto"
+
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
+	_ = godotenv.Load()
 	dsn := "root:rootpassword@tcp(localhost:3306)/products_db"
 
 	// Mysql
@@ -64,9 +67,10 @@ func main() {
 	}
 
 	publisher := event.NewProductPublisher(rabbitCh)
+	
 	consumerCh, err := rabbitConn.Channel()
 	if err != nil {
-		log.Fatal(fmt.Errorf("gagal membuka consumer RabbitMQ: %w", err))
+		log.Fatal(fmt.Errorf("gagal membuka channel consumer RabbitMQ: %w", err))
 	}
 	defer consumerCh.Close()
 

@@ -35,6 +35,9 @@ func StartProductConsumer(ch *amqp.Channel) {
 		}
 
 		slog.Info("pesan produk baru diterima", "product_id", product.ID, "name", product.Name)
+		if err := notifyAdminNewProduct(product); err != nil {
+			slog.Warn("gagal kirim notifikasi email", "product_id", product.ID, "error", err)
+		}
 
 		msg.Ack(false)
 	}
