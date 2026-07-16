@@ -4,40 +4,12 @@ package product;
 
 option go_package = "product-api/proto";
 
-import "google/api/annotations.proto";
-
 service ProductGRPCService {
-  rpc GetAllProducts (Empty) returns (ProductList) {
-    option (google.api.http) = {
-      get: "/v1/products"
-    };
-  }
-
-  rpc GetProductByID (GetProductByIDRequest) returns (Product) {
-    option (google.api.http) = {
-      get: "/v1/products/{id}"
-    };
-  }
-
-  rpc CreateProduct (CreateProductRequest) returns (Product) {
-    option (google.api.http) = {
-      post: "/v1/products"
-      body: "*"
-    };
-  }
-
-  rpc UpdateProduct (UpdateProductRequest) returns (Product) {
-    option (google.api.http) = {
-      put: "/v1/products/{id}"
-      body: "*"
-    };
-  }
-
-  rpc DeleteProduct (DeleteProductRequest) returns (DeleteProductResponse) {
-    option (google.api.http) = {
-      delete: "/v1/products/{id}"
-    };
-  }
+  rpc GetAllProducts (Empty) returns (ProductList);
+  rpc GetProductByID (GetProductByIDRequest) returns (Product);
+  rpc CreateProduct (CreateProductRequest) returns (Product);
+  rpc UpdateProduct (UpdateProductRequest) returns (Product);
+  rpc DeleteProduct (DeleteProductRequest) returns (DeleteProductResponse);
 }
 
 message Empty {}

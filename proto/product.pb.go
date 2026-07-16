@@ -7,7 +7,6 @@
 package proto
 
 import (
-	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -434,7 +433,7 @@ var File_product_proto protoreflect.FileDescriptor
 
 const file_product_proto_rawDesc = "" +
 	"\n" +
-	"\rproduct.proto\x12\aproduct\x1a\x1cgoogle/api/annotations.proto\"\a\n" +
+	"\rproduct.proto\x12\aproduct\"\a\n" +
 	"\x05Empty\"Y\n" +
 	"\aProduct\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n" +
@@ -457,13 +456,13 @@ const file_product_proto_rawDesc = "" +
 	"\x14DeleteProductRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\"1\n" +
 	"\x15DeleteProductResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\xe7\x03\n" +
-	"\x12ProductGRPCService\x12L\n" +
-	"\x0eGetAllProducts\x12\x0e.product.Empty\x1a\x14.product.ProductList\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/v1/products\x12]\n" +
-	"\x0eGetProductByID\x12\x1e.product.GetProductByIDRequest\x1a\x10.product.Product\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/v1/products/{id}\x12Y\n" +
-	"\rCreateProduct\x12\x1d.product.CreateProductRequest\x1a\x10.product.Product\"\x17\x82\xd3\xe4\x93\x02\x11:\x01*\"\f/v1/products\x12^\n" +
-	"\rUpdateProduct\x12\x1d.product.UpdateProductRequest\x1a\x10.product.Product\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\x1a\x11/v1/products/{id}\x12i\n" +
-	"\rDeleteProduct\x12\x1d.product.DeleteProductRequest\x1a\x1e.product.DeleteProductResponse\"\x19\x82\xd3\xe4\x93\x02\x13*\x11/v1/products/{id}B\x13Z\x11product-api/protob\x06proto3"
+	"\amessage\x18\x01 \x01(\tR\amessage2\xe4\x02\n" +
+	"\x12ProductGRPCService\x126\n" +
+	"\x0eGetAllProducts\x12\x0e.product.Empty\x1a\x14.product.ProductList\x12B\n" +
+	"\x0eGetProductByID\x12\x1e.product.GetProductByIDRequest\x1a\x10.product.Product\x12@\n" +
+	"\rCreateProduct\x12\x1d.product.CreateProductRequest\x1a\x10.product.Product\x12@\n" +
+	"\rUpdateProduct\x12\x1d.product.UpdateProductRequest\x1a\x10.product.Product\x12N\n" +
+	"\rDeleteProduct\x12\x1d.product.DeleteProductRequest\x1a\x1e.product.DeleteProductResponseB\x13Z\x11product-api/protob\x06proto3"
 
 var (
 	file_product_proto_rawDescOnce sync.Once

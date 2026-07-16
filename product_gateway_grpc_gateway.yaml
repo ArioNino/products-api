@@ -1,0 +1,21 @@
+type: google.api.Service
+config_version: 3
+
+http:
+  rules:
+    - selector: product.ProductGRPCService.GetAllProducts
+      get: /v1/products
+
+    - selector: product.ProductGRPCService.GetProductByID
+      get: /v1/products/{id}
+
+    - selector: product.ProductGRPCService.CreateProduct
+      post: /v1/products
+      body: "*"
+
+    - selector: product.ProductGRPCService.UpdateProduct
+      put: /v1/products/{id}
+      body: "*"
+
+    - selector: product.ProductGRPCService.DeleteProduct
+      delete: /v1/products/{id}
