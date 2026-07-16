@@ -13,7 +13,7 @@ type ProductGRPCServer struct {
 	service *service.ProductService
 }
 
-func NewProductGRPCServer (service *service.ProductService,) *ProductGRPCServer {
+func NewProductGRPCServer(service *service.ProductService) *ProductGRPCServer {
 	return &ProductGRPCServer{service: service}
 }
 
