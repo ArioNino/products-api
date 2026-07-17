@@ -103,3 +103,13 @@ func (c *CircuitBreakerRepository) Update(id int, updated model.Product)(model.P
 	c.afterReq(err)
 	return updated, err
 }
+
+func (c *CircuitBreakerRepository) Delete(id int) error{
+	if err := c.beforeRequest(); err != nil{
+		return err
+	}
+
+	err := c.next.Delete(id)
+	c.afterReq(err)
+	return err
+}
