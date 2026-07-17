@@ -50,12 +50,12 @@ func (r *productRepositoryMySQL) Create(p model.Product) (model.Product, error) 
 func (r *productRepositoryMySQL) GetByID(id int) (model.Product, error) {
 	var p model.Product
 	err := r.db.QueryRow(
-		"SELECT id, name, price, stock FROM products WHERE id = ?", 
+		"SELECT id, name, price, stock FROM products WHERE id = ?",
 		id).Scan(&p.ID, &p.Name, &p.Price, &p.Stock)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return model.Product{}, fmt.Errorf("produk dengan ID %d tidak ditemukan", id)
+			return model.Product{}, ErrProductNotFound  
 		}
 		return model.Product{}, err
 	}

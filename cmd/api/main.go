@@ -93,7 +93,8 @@ func main() {
 	slog.SetDefault(logger)
 
 	repo := repository.NewProductRepositoryMySQL(db)
-	svc := service.NewProductService(repo, redisClient, logger, publisher)
+	protectRepo := repository.NewCircuitBreakerRepository(repo)
+	svc := service.NewProductService(protectRepo, redisClient, logger, publisher)
 	h := handler.NewProductHandler(svc)
 	mux := router.NewRouter(h)
 

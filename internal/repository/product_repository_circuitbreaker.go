@@ -61,7 +61,7 @@ func (c *CircuitBreakerRepository) afterReq(err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrProductNotFound) {
 		c.failureCount++
 		if c.state == StateHalfOpen || c.failureCount >= c.failureThreshold {
 			c.state = StateOpen
@@ -82,6 +82,16 @@ func (c *CircuitBreakerRepository) GetAll()([]model.Product, error){
 	products, err := c.next.GetAll()
 	c.afterReq(err)
 	return products, err
+}
+
+func (c *CircuitBreakerRepository) GetByID(id int) (model.Product, error) {
+	if err := c.beforeRequest(); err != nil {
+		return model.Product{}, err
+	}
+
+	product, err := c.next.GetByID(id)
+	c.afterReq(err)
+	return product, err
 }
 
 func (c *CircuitBreakerRepository) Create(p model.Product)(model.Product, error){
