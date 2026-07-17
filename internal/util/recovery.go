@@ -16,6 +16,6 @@ func SafeGo(ctx context.Context, name string, fn func()) {
 				)
 			}
 		}()
-		
+		fn()
 	}()
 }

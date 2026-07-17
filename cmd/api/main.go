@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	_ "product-api/docs"
 	"product-api/internal/database"
 	"product-api/internal/event"
@@ -21,9 +22,9 @@ import (
 	"product-api/internal/handler"
 	"product-api/internal/observability"
 	"product-api/internal/repository"
-	"product-api/internal/util"
 	"product-api/internal/router"
 	"product-api/internal/service"
+	"product-api/internal/util"
 	pb "product-api/proto"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -33,6 +34,8 @@ import (
 )
 
 func main() {
+	wd, _ := os.Getwd()
+	slog.Debug(wd)
 	_ = godotenv.Load()
 	dsn := "root:rootpassword@tcp(localhost:3306)/products_db"
 	ctx := context.Background()
@@ -50,7 +53,7 @@ func main() {
 		log.Fatal(fmt.Errorf("gagal membuat koneksi Redis: %w", err))
 	}
 	defer redisClient.Close()
-	
+
 	// RabbitMQ
 	rabbitConn, err := database.ConnectRabbitMQ("amqp://app_user:app_password@localhost:5672/")
 	if err != nil {
@@ -63,22 +66,22 @@ func main() {
 		log.Fatal(fmt.Errorf("gagal membuka channel RabbitMQ: %w", err))
 	}
 	defer rabbitCh.Close()
-	
+
 	if err := event.SetupProductBroker(rabbitCh); err != nil {
 		log.Fatal(fmt.Errorf("gagal setup exchange/queue RabbitMQ: %w", err))
 	}
 
 	publisher := event.NewProductPublisher(rabbitCh)
-	
+
 	consumerCh, err := rabbitConn.Channel()
 	if err != nil {
 		log.Fatal(fmt.Errorf("gagal membuka channel consumer RabbitMQ: %w", err))
 	}
 	defer consumerCh.Close()
 
-	util.SafeGo(ctx, "rabbit-consumer", func ()  {
+	util.SafeGo(ctx, "rabbit-consumer", func() {
 		event.StartProductConsumer(consumerCh)
-	}) 
+	})
 
 	// Logger
 	logger, shutdownLogger, err := observability.InitLogger("product-api")
@@ -86,26 +89,19 @@ func main() {
 		log.Fatal(fmt.Errorf("gagal setup logger: %w", err))
 	}
 	defer shutdownLogger(context.Background())
-	
+
 	slog.SetDefault(logger)
 
 	repo := repository.NewProductRepositoryMySQL(db)
 	svc := service.NewProductService(repo, redisClient, logger, publisher)
 	h := handler.NewProductHandler(svc)
 	mux := router.NewRouter(h)
-	
-	util.SafeGo(ctx, "rest-server", func ()  {
-		slog.Info("REST server jalan di port 8081")
-		if err := http.ListenAndServe(":8081", mux); err != nil {
-			slog.Error("REST server gagal berjalan", "error", err)
-		}
-	})
 
 	grpcSrv := grpcserver.NewProductGRPCServer(svc)
 	grpcServer := grpc.NewServer()
 	pb.RegisterProductGRPCServiceServer(grpcServer, grpcSrv)
 
-	util.SafeGo(ctx, "grpc-server", func ()  {
+	util.SafeGo(ctx, "grpc-server", func() {
 		listener, err := net.Listen("tcp", ":9090")
 		if err != nil {
 			log.Fatal(fmt.Errorf("gagal listen gRPC : %w", err))
@@ -119,10 +115,14 @@ func main() {
 	util.SafeGo(ctx, "grpc-gateway", func() {
 		gateway("localhost:9090", ":8082")
 	})
-	select{}
+
+	slog.Info("REST server jalan di port 8081")
+	if err := http.ListenAndServe(":8081", mux); err != nil {
+		slog.Error("REST server gagal berjalan", "error", err)
+	}
 }
 
-func gateway(grpcAddr string, gatewayAddr string){
+func gateway(grpcAddr string, gatewayAddr string) {
 	ctx := context.Background()
 	gwMux := runtime.NewServeMux()
 

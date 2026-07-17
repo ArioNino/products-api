@@ -11,6 +11,11 @@ import (
 )
 
 func StartProductConsumer(ch *amqp.Channel) {
+	if err := ch.Qos(1, 0, false); err != nil {
+		slog.Error("gagal set qos consumer", "error", err)
+		return
+	}
+	
 	msgs, err := ch.Consume(
 		QueueName,
 		"",
